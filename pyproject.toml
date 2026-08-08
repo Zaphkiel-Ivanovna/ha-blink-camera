@@ -1,6 +1,6 @@
 [project]
 name = "ha-blink-camera"
-version = "0.1.0"
+version = "0.2.0"
 description = "Home Assistant add-on that re-broadcasts a Blink camera liveview as MPEG-TS on the LAN"
 readme = "README.md"
 requires-python = ">=3.13"

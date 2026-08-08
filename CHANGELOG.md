@@ -9,11 +9,28 @@ release bumps it.
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-08-08
+
 ### Added
 
-- Ingress web UI for entering a two-factor code, removing the session-import
-  step. Blink keeps its login state per process, so the code has to reach a
-  running add-on — the only reason v0.1 needs an imported session.
+- A setup page in the add-on's **Web UI** tab. Enter your Blink email, password
+  and the code Blink sends, and the add-on is configured — no CLI on another
+  machine, no session file copied in over Samba. The password is never stored.
+- A sidebar panel (`mdi:cctv`) and configuration labels that explain the fields
+  can be left alone.
+
+### Changed
+
+- An unconfigured install now serves the setup page instead of idling with a
+  message about options nobody should have to edit.
+- Login and verification failures are classified and shown on the page. Only
+  the two-factor challenge was handled before, so a network blip mid-login
+  produced a bare HTTP 500 with no explanation.
+
+### Fixed
+
+- Setup banners are shown once rather than persisting, so an old failure no
+  longer stays on screen after the flow has moved past it.
 
 ## [0.1.0] - 2026-08-08
 
@@ -59,5 +76,6 @@ bootstrapped from a session file produced elsewhere.
 - One camera per install, one consumer at a time.
 - No two-factor login without an imported session file.
 
-[Unreleased]: https://github.com/Zaphkiel-Ivanovna/ha-blink-camera/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/Zaphkiel-Ivanovna/ha-blink-camera/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/Zaphkiel-Ivanovna/ha-blink-camera/releases/tag/v0.2.0
 [0.1.0]: https://github.com/Zaphkiel-Ivanovna/ha-blink-camera/releases/tag/v0.1.0
