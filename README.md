@@ -2,7 +2,7 @@
   <img src="logo.png" alt="Blink Camera Streamer for Home Assistant" width="250">
 </p>
 
-# Blink Camera Streamer
+# Blink Camera Streamer for Home Assistant
 
 [![Home Assistant add-on](https://img.shields.io/badge/Home%20Assistant-Add--on-41BDF5.svg?style=for-the-badge)](https://www.home-assistant.io/getting-started/concepts-terminology/#add-ons)
 [![Validate](https://img.shields.io/github/actions/workflow/status/Zaphkiel-Ivanovna/ha-blink-camera/validate.yml?branch=main&style=for-the-badge&label=validate)](https://github.com/Zaphkiel-Ivanovna/ha-blink-camera/actions/workflows/validate.yml)
@@ -19,6 +19,28 @@ The stream is copied byte for byte — H.264 1920x1080 plus AAC 16 kHz mono, abo
 > cameras expose no service on your network; the video always travels through
 > Blink's cloud. This add-on gives you a LAN endpoint for a cloud stream, not a
 > way around the cloud.
+
+## Use it alongside the official Blink integration
+
+This add-on does one thing: live video. For everything else — arming, motion
+detection, snapshots, clips, battery and temperature — install Home Assistant's
+built-in [Blink integration](https://www.home-assistant.io/integrations/blink/).
+The two are complementary by design, and its own documentation states that it
+"does NOT allow for live viewing of your Blink camera within Home Assistant".
+
+| You want | Use |
+|---|---|
+| Live video | **this add-on** |
+| Arm / disarm the system | Blink integration — alarm control panel |
+| Motion detection on/off per camera | Blink integration — switch |
+| Motion, armed and battery state | Blink integration — binary sensors |
+| Temperature, Wi-Fi strength | Blink integration — sensors |
+| Snapshots and recorded clips | Blink integration — `blink.trigger_camera`, `blink.record`, `blink.save_video` |
+
+Camera control deliberately stays out of this add-on. An add-on is a container:
+it cannot register entities in Home Assistant at all, so exposing switches and
+sensors from here would mean reimplementing a first-party integration on top of
+MQTT discovery — more moving parts, for something you already have.
 
 ## Installation
 
