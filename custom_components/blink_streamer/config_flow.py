@@ -9,7 +9,13 @@ import voluptuous as vol
 from homeassistant.config_entries import ConfigFlow, ConfigFlowResult
 from homeassistant.const import CONF_NAME
 
-from .const import CONF_STREAM_URL, DEFAULT_NAME, DOMAIN
+from .const import (
+    CONF_STREAM_URL,
+    DEFAULT_NAME,
+    DOMAIN,
+    SUPPORTED_SCHEMES,
+    normalise,
+)
 
 _SCHEMA = vol.Schema(
     {
@@ -17,8 +23,6 @@ _SCHEMA = vol.Schema(
         vol.Required(CONF_STREAM_URL): str,
     }
 )
-
-_SUPPORTED_SCHEMES = ("rtsp", "rtsps", "tcp", "http", "https")
 
 
 class BlinkStreamerConfigFlow(ConfigFlow, domain=DOMAIN):
@@ -35,10 +39,11 @@ class BlinkStreamerConfigFlow(ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             url = user_input[CONF_STREAM_URL].strip()
             parsed = urlparse(url)
-            if parsed.scheme not in _SUPPORTED_SCHEMES or not parsed.netloc:
+            if parsed.scheme.lower() not in SUPPORTED_SCHEMES or not parsed.netloc:
                 errors[CONF_STREAM_URL] = "invalid_url"
             else:
-                await self.async_set_unique_id(url)
+                canonical = normalise(url)
+                await self.async_set_unique_id(canonical)
                 self._abort_if_unique_id_configured()
                 return self.async_create_entry(
                     title=user_input[CONF_NAME],
