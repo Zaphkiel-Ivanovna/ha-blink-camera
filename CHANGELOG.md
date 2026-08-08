@@ -9,6 +9,18 @@ release bumps it.
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-08-09
+
+### Added
+
+- A companion **integration**, installable through HACS from this same
+  repository. It creates the camera as its own device, with this project's name
+  and icon, instead of an entry filed under Generic Camera. An add-on is a
+  container and has no access to the entity registry, so only an integration can
+  create entities — the two halves are complementary, and are released together.
+- Brand assets, so the integration shows its own icon and logo in Home
+  Assistant rather than a placeholder.
+
 ## [0.2.0] - 2026-08-08
 
 ### Added
@@ -76,6 +88,7 @@ bootstrapped from a session file produced elsewhere.
 - One camera per install, one consumer at a time.
 - No two-factor login without an imported session file.
 
-[Unreleased]: https://github.com/Zaphkiel-Ivanovna/ha-blink-camera/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/Zaphkiel-Ivanovna/ha-blink-camera/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/Zaphkiel-Ivanovna/ha-blink-camera/releases/tag/v0.3.0
 [0.2.0]: https://github.com/Zaphkiel-Ivanovna/ha-blink-camera/releases/tag/v0.2.0
 [0.1.0]: https://github.com/Zaphkiel-Ivanovna/ha-blink-camera/releases/tag/v0.1.0

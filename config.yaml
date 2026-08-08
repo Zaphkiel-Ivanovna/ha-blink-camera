@@ -1,6 +1,6 @@
 ---
 name: Blink Camera Streamer
-version: "0.2.0"
+version: "0.3.0"
 slug: blink_camera
 description: >-
   Re-broadcasts a Blink camera liveview as an MPEG-TS stream on your LAN, so
