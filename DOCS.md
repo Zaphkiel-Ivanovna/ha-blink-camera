@@ -1,4 +1,4 @@
-# Blink Camera Streamer
+# Blink Camera Streamer for Home Assistant
 
 Opens a liveview on one Blink camera and re-broadcasts it as raw MPEG-TS on your
 LAN, so Home Assistant, go2rtc or Frigate can consume it as a normal camera.
@@ -11,6 +11,18 @@ nothing.
 > cameras expose no service on your network; the video always travels through
 > Blink's cloud. This add-on does not change that. It gives you a LAN endpoint
 > for a cloud stream.
+
+## What this add-on does not do
+
+It relays live video, and nothing else. Arming, motion detection, snapshots,
+clips, battery and temperature all come from Home Assistant's built-in
+[Blink integration](https://www.home-assistant.io/integrations/blink/), which
+covers everything except live viewing — its documentation says so explicitly.
+Install both; they are complementary.
+
+An add-on cannot register entities in Home Assistant, so camera control could
+only be added here by reimplementing a first-party integration over MQTT
+discovery. That is not a trade worth making.
 
 ## Before you start
 
