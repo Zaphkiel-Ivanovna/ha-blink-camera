@@ -96,12 +96,15 @@ async def test_the_code_reaches_the_handler(page: tuple) -> None:
 
 
 async def test_a_rejected_code_is_reported_and_retryable(page: tuple) -> None:
-    """A typo must not dead-end the setup."""
+    """A typo must not dead-end the setup.
+
+    The assertion is on the page the redirect lands on, not on a later GET:
+    banners are shown once, so a reload deliberately clears them.
+    """
     client, state, recorder = page
     state.stage, recorder.code_ok = Stage.TWO_FACTOR, False
 
-    await client.post("/verify", data={"code": "000000"})
-    body = await (await client.get("/")).text()
+    body = await (await client.post("/verify", data={"code": "000000"})).text()
 
     assert "not accepted" in body
     assert 'name="code"' in body, "the form is still there to try again"
@@ -194,3 +197,55 @@ def test_the_app_exposes_only_three_routes() -> None:
         ("POST", "/login"),
         ("POST", "/verify"),
     }
+
+
+async def test_banners_escape_their_content(page: tuple) -> None:
+    """Errors carry text from Blink and from exceptions; they are data too."""
+    client, state, _ = page
+    state.stage = Stage.READY
+    state.error = "<b>bad error</b>"
+    state.message = "<i>bad message</i>"
+
+    body = await (await client.get("/")).text()
+
+    assert "<b>bad error</b>" not in body
+    assert "<i>bad message</i>" not in body
+    assert "&lt;b&gt;bad error&lt;/b&gt;" in body
+
+
+async def test_a_banner_is_shown_once(page: tuple) -> None:
+    """A stale failure left on screen reads as though the last action failed."""
+    client, state, _ = page
+    state.error = "Something went wrong."
+
+    first = await (await client.get("/")).text()
+    second = await (await client.get("/")).text()
+
+    assert "Something went wrong." in first
+    assert "Something went wrong." not in second
+
+
+@pytest.mark.parametrize(
+    ("route", "payload", "field"),
+    [
+        ("/login", {"username": "me@example.com", "password": "p" * 5000}, "password"),
+        ("/login", {"username": "u" * 5000, "password": "pw"}, "username"),
+        ("/verify", {"code": "1" * 5000}, "code"),
+    ],
+    ids=["password", "username", "code"],
+)
+async def test_no_unbounded_input_reaches_blink(
+    page: tuple, route: str, payload: dict, field: str
+) -> None:
+    """A browser can post anything; every field is capped before it is used."""
+    client, state, recorder = page
+    state.stage = Stage.TWO_FACTOR
+
+    await client.post(route, data=payload)
+
+    seen = (
+        recorder.codes[0]
+        if route == "/verify"
+        else (recorder.logins[0][1] if field == "password" else recorder.logins[0][0])
+    )
+    assert len(seen) <= 256

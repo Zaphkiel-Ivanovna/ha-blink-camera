@@ -65,9 +65,7 @@ async def _connect(client: BlinkClient, stop: asyncio.Event) -> bool:
     return False
 
 
-async def _await_setup(
-    client: BlinkClient, state: SetupState, stop: asyncio.Event
-) -> bool:
+async def _await_setup(state: SetupState, stop: asyncio.Event) -> bool:
     """Hold until someone completes the setup page, or the add-on stops."""
     _LOGGER.error("ACTION REQUIRED: open this add-on's Web UI tab and sign in.")
     while not stop.is_set():
@@ -147,7 +145,7 @@ async def _sign_in(
                 return True
         except FatalConfigError as err:
             _LOGGER.warning("%s", err)
-    return await _await_setup(client, state, stop)
+    return await _await_setup(state, stop)
 
 
 async def _main(redactor: SecretRedactor) -> None:

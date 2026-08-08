@@ -99,12 +99,18 @@ def _page(body: str, *, title: str) -> web.Response:
 
 
 def _banners(state: SetupState) -> str:
-    """Render the error and status banners, if any."""
+    """Render the error and status banners, then consume them.
+
+    They are shown once, on the page the redirect lands on. Leaving them set
+    would keep an old failure on screen after the flow has already moved past
+    it, which reads as though the last thing you did failed.
+    """
     out = ""
     if state.error:
         out += f'<div class="banner error">{html.escape(state.error)}</div>'
     if state.message:
         out += f'<div class="banner ok">{html.escape(state.message)}</div>'
+    state.error = state.message = ""
     return out
 
 

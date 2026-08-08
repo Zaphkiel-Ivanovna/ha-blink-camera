@@ -47,6 +47,15 @@ _SESSION_FILE_MODE: Final = 0o600
 _SECRET_SESSION_KEYS: Final = ("token", "refresh_token")
 CONNECTIVITY_TIMEOUT_S: Final = 10.0
 _FEED_FAILURES: Final = (OSError, RuntimeError, ValueError, UnauthorizedError)
+_LOGIN_FAILURES: Final = (
+    ClientError,
+    TimeoutError,
+    OSError,
+    KeyError,
+    TypeError,
+    ValueError,
+    UnauthorizedError,
+)
 
 
 class StreamSink(Protocol):
@@ -239,22 +248,38 @@ class BlinkClient:
         except BlinkTwoFARequiredError:
             self._awaiting_2fa = True
             return False
+        except _LOGIN_FAILURES as err:
+            raise TransientBlinkError(f"Blink could not be reached: {err}") from err
 
         self._persist_session()
         if not started or not blink.available:
             await self._raise_login_failure()
-        await blink.refresh(force=True)
+        try:
+            await blink.refresh(force=True)
+        except _LOGIN_FAILURES as err:
+            raise TransientBlinkError(
+                f"Signed in, but Blink then failed: {err}"
+            ) from err
         return True
 
     async def submit_two_factor(self, code: str) -> bool:
         """Finish a login with the code Blink sent. False if it was rejected."""
         blink = self._require_blink()
-        if not await blink.send_2fa_code(code):
+        try:
+            accepted = bool(await blink.send_2fa_code(code))
+        except _LOGIN_FAILURES as err:
+            raise TransientBlinkError(f"Blink could not be reached: {err}") from err
+        if not accepted:
             return False
 
         self._awaiting_2fa = False
         self._persist_session()
-        await blink.refresh(force=True)
+        try:
+            await blink.refresh(force=True)
+        except _LOGIN_FAILURES as err:
+            raise TransientBlinkError(
+                f"Verified, but Blink then failed: {err}"
+            ) from err
         _LOGGER.info("Authenticated; %d camera(s) on the account", len(blink.cameras))
         return True
 
