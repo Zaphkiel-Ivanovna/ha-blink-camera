@@ -135,6 +135,12 @@ an account gets locked out. It logs one actionable line and idles instead.
 | Wrong credentials or camera name | One line, then idle |
 | Add-on stopped | Clean shutdown, even mid-stream |
 
+The relay serves video and no snapshot endpoint, so a thumbnail is decoded from
+the live stream. The first one after an idle period therefore has to wait for a
+Blink session and a keyframe, which overruns Home Assistant's ten-second image
+timeout: it fails, and the next request a few seconds later succeeds. Set a card
+to `camera_view: live` and it never asks for a still at all.
+
 One camera per installation: Supervisor installs one copy per slug, and the
 relay's host port is fixed, so a second instance cannot be installed.
 
