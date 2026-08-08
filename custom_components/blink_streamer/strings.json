@@ -1,0 +1,23 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Blink Camera Streamer",
+        "description": "Point this at the stream the add-on is re-broadcasting. With the go2rtc bridge from the add-on documentation, that is an RTSP URL such as rtsp://homeassistant.local:8554/blink_bureau.",
+        "data": {
+          "name": "Name",
+          "stream_url": "Stream URL"
+        },
+        "data_description": {
+          "stream_url": "rtsp:// from go2rtc, or tcp:// straight from the add-on."
+        }
+      }
+    },
+    "error": {
+      "invalid_url": "Use a rtsp://, rtsps://, tcp://, http:// or https:// URL including a host."
+    },
+    "abort": {
+      "already_configured": "That stream is already set up."
+    }
+  }
+}

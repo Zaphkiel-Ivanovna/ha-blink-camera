@@ -42,9 +42,22 @@ it cannot register entities in Home Assistant at all, so exposing switches and
 sensors from here would mean reimplementing a first-party integration on top of
 MQTT discovery — more moving parts, for something you already have.
 
+## Two pieces, and you need both
+
+| | What it is | How you install it |
+|---|---|---|
+| **Add-on** | Talks to Blink, re-broadcasts the liveview on your LAN | Add-on store (button below) |
+| **Integration** | Turns that stream into a `camera.*` entity with its own device | HACS |
+
+The split is not a preference. An add-on is a container: it has no access to
+Home Assistant's entity registry and *cannot* create entities. Something inside
+Home Assistant has to do that, which means an integration. Without it you can
+still use a Generic Camera pointed at the stream — you just get an entity filed
+under "Generic Camera" with no connection to this project.
+
 ## Installation
 
-### One click
+### The add-on, in one click
 
 [![Add this repository to your Home Assistant](https://my.home-assistant.io/badges/supervisor_add_addon_repository.svg)](https://my.home-assistant.io/redirect/supervisor_add_addon_repository/?repository=https%3A%2F%2Fgithub.com%2FZaphkiel-Ivanovna%2Fha-blink-camera)
 
@@ -52,9 +65,9 @@ The button adds this repository to the add-on store on **your** instance. Then
 open **Settings → Add-ons → Add-on store**, find *Blink Camera Streamer* and
 install it.
 
-> This is an **add-on**, not a HACS integration. HACS does not distribute
-> add-ons — Supervisor's own add-on store does, and the button above is its
-> equivalent of the HACS one.
+> HACS does not distribute add-ons — Supervisor's own add-on store does, and the
+> button above is its equivalent of the HACS one. The companion integration
+> below *is* distributed by HACS.
 
 <details>
 <summary>If the button does not work</summary>
@@ -63,6 +76,18 @@ install it.
 `https://github.com/Zaphkiel-Ivanovna/ha-blink-camera`, then **Add**.
 
 </details>
+
+### The integration, through HACS
+
+[![Open this repository in HACS](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=Zaphkiel-Ivanovna&repository=ha-blink-camera&category=integration)
+
+Same repository, added to HACS as a custom repository of category
+**Integration**. Then **Settings → Devices & services → Add integration →
+Blink Camera Streamer**, and give it the stream URL the add-on's documentation
+tells you to use.
+
+The two live in one repository on purpose: they are versioned and released
+together, and HACS and Supervisor each read only the files that concern them.
 
 ### Requirements
 
