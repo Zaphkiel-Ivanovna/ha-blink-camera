@@ -13,12 +13,11 @@ arch:
 
 init: false
 startup: services
-boot: auto
 
 map:
   - type: data
     read_only: false
-  - type: app_config
+  - type: addon_config
     read_only: false
 
 ports:
