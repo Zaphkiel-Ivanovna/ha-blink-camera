@@ -40,6 +40,16 @@ class BlinkStreamerCamera(Camera):
             configuration_url="https://github.com/Zaphkiel-Ivanovna/ha-blink-camera",
         )
 
+    @property
+    def use_stream_for_stills(self) -> bool:
+        """Take still images from the stream, since there is no snapshot URL.
+
+        The relay serves video and nothing else. Without this, Home Assistant
+        calls `async_camera_image()`, which this entity does not implement, and
+        every thumbnail request fails with a 500.
+        """
+        return True
+
     async def stream_source(self) -> str:
         """Where Home Assistant should pull the live stream from."""
         return self._stream_url
