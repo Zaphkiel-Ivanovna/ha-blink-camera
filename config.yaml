@@ -15,7 +15,6 @@ init: false
 startup: services
 
 ingress: true
-ingress_port: 8099
 panel_icon: mdi:cctv
 panel_title: Blink camera
 
