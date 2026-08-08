@@ -20,6 +20,7 @@ ha-blink-camera/
     stream_relay.py      # BlinkLiveStream lifecycle, TCP re-broadcast, renegotiation
     exceptions.py        # BlinkCameraError hierarchy
     logging_setup.py     # stdlib logging configuration
+    setup_ui.py          # Ingress first-run UI (see the amendment below)
     cli.py               # entrypoint (python -m ha_blink_camera.cli)
   tests/
     unit/                # mirrors src/ha_blink_camera/ one-to-one
@@ -51,6 +52,12 @@ from shadowing the installed one during tests and CI
 - **`stream_relay.py`** owns the `asyncio.TaskGroup` running the poll loop, the
   `.feed()` task and session renegotiation. No blinkpy import here — it goes
   through `blink_client.py`.
+- **`setup_ui.py`** serves the Ingress first-run page and nothing else.
+  Amended 2026-08-08 (M5) for an external reason, not convenience: blinkpy keeps
+  its OAuth CSRF token, PKCE verifier and signin cookies as in-memory attributes
+  that `complete_2fa_login()` deletes after use, so a two-factor code must reach
+  the *running* process. No option, file drop or restart can carry it. The module
+  owns HTTP only; every Blink call still goes through `blink_client.py`.
 - **`exceptions.py`** defines one hierarchy:
   `BlinkCameraError` -> `TransientBlinkError` (retry) / `FatalConfigError`
   (never retry). Every `except` clause catches one of these, never bare

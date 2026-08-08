@@ -100,6 +100,25 @@ def load_config(data_dir: Path, config_dir: Path | None = None) -> Config:
     )
 
 
+def load_config_or_blank(data_dir: Path, config_dir: Path | None = None) -> Config:
+    """Like `load_config`, but an unconfigured install yields a blank Config.
+
+    A fresh install has nothing to load and no error worth showing: the setup
+    page collects the credentials instead, so there is nothing for the user to
+    fix and nothing to idle over.
+    """
+    try:
+        return load_config(data_dir, config_dir)
+    except NotConfiguredError:
+        return Config(
+            username="",
+            password="",
+            camera_name=None,
+            data_dir=data_dir,
+            config_dir=config_dir if config_dir is not None else resolve_config_dir(),
+        )
+
+
 def _read_options(path: Path) -> dict[str, Any]:
     """Parse the options file, mapping every failure to NotConfiguredError."""
     try:

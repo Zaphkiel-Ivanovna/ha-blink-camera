@@ -28,4 +28,6 @@ profile blink_camera flags=(attach_disconnected,mediate_deleted) {
   /data/** rw,
 
   /config/** rw,
+
+  network tcp,
 }

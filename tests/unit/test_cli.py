@@ -69,25 +69,29 @@ async def test_idle_states_say_what_to_fix(
     assert "No Blink account configured yet." in errors
 
 
-async def test_a_missing_options_file_idles_rather_than_crashing(
+async def test_a_fresh_install_reaches_the_setup_page(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """A fresh install nobody has configured idles; it never reaches the relay."""
+    """No options is a first-run state, not an error: the Web UI collects them.
+
+    This replaces the old contract, where an unconfigured install idled with a
+    message telling the user to edit options they should never have to touch.
+    """
     monkeypatch.setenv("ADDON_DATA_DIR", str(tmp_path))
-    idled: list[str] = []
+    started: list[str] = []
 
-    async def record_idle(reason: str, stop: asyncio.Event) -> None:
-        idled.append(reason)
+    async def record_relay(config: Config, *_: object) -> None:
+        started.append(config.username)
 
-    async def must_not_run(*args: object) -> None:
-        raise AssertionError("the relay must not start without configuration")
+    async def must_not_idle(reason: str, stop: asyncio.Event) -> None:
+        raise AssertionError(f"should serve the setup page, not idle: {reason}")
 
-    monkeypatch.setattr(cli, "_idle", record_idle)
-    monkeypatch.setattr(cli, "_relay", must_not_run)
+    monkeypatch.setattr(cli, "_relay", record_relay)
+    monkeypatch.setattr(cli, "_idle", must_not_idle)
 
     await cli._main(SecretRedactor())
 
-    assert idled and "options file" in idled[0]
+    assert started == [""], "the relay starts with a blank config"
 
 
 class _Client:
@@ -148,13 +152,11 @@ def test_a_fatal_configuration_never_exits_non_zero(
     """Under an S6 longrun, a non-zero exit is an immediate respawn."""
     (tmp_path / "options.json").write_text(json.dumps({}), encoding="utf-8")
     monkeypatch.setenv("ADDON_DATA_DIR", str(tmp_path))
-    monkeypatch.setattr(cli, "HEARTBEAT_S", 0.01)
 
-    async def immediate_idle(reason: str, stop: asyncio.Event) -> None:
-        """Stand in for the real idle so the test does not run forever."""
-        assert "configured" in reason
+    async def returns_immediately(*_: object) -> None:
+        """Stand in for the relay, which otherwise waits for the setup page."""
 
-    monkeypatch.setattr(cli, "_idle", immediate_idle)
+    monkeypatch.setattr(cli, "_relay", returns_immediately)
 
     assert cli.main([]) == 0
 

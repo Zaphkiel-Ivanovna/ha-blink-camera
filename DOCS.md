@@ -32,12 +32,20 @@ second instance is not something you can install, not merely something that is
 untested. Multiple cameras need either separate repositories with distinct
 slugs, or a future version that multiplexes them. Neither exists yet.
 
-**This version cannot answer a two-factor prompt.** Blink's login keeps its
-one-time state in memory, so a code has to reach a process that is already
-running — which needs the web UI arriving in a later version. Until then, log in
-once elsewhere and import the result. See below.
-
 ## First run
+
+Open the add-on's **Web UI** tab, enter your Blink email and password, then the
+code Blink sends you. That is the whole setup — the session is stored, your
+password is not, and you will not be asked again.
+
+Blink keeps its login state in memory for the duration of the exchange, which is
+why the code has to be typed into a page served by the running add-on rather
+than pasted into an option or a file.
+
+<details>
+<summary>Importing a session instead of signing in</summary>
+
+## Importing a session by hand
 
 ### 1. Produce a session file
 
@@ -77,12 +85,14 @@ be left sitting in a folder every other add-on can read. You will see:
 Imported the session from /config/session.json and removed it
 ```
 
-### 4. Configure and start
+</details>
+
+## Options
 
 | Option | Meaning |
 |---|---|
-| `username` | The Blink account email. Must match the imported session, or the session is discarded as belonging to someone else. |
-| `password` | Leave empty when using an imported session. |
+| `username` | Filled in for you when you sign in from the Web UI. Set it by hand only when importing a session; it must match, or the session is discarded as belonging to someone else. |
+| `password` | Not needed and not stored. Sign in from the Web UI instead. |
 | `camera_name` | The camera's name exactly as shown in the Blink app. Leave empty if the account has one camera. |
 
 The log should show `Authenticated`, then `Relaying camera '<name>' on demand`,
