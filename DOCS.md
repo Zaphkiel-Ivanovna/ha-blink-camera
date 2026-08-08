@@ -232,6 +232,10 @@ Your credentials are handled as follows:
 ## Known limitations
 
 - One camera per install.
+- The first thumbnail after an idle period fails. Stills are decoded from the
+  live stream, and opening a Blink session plus waiting for a keyframe takes
+  longer than Home Assistant allows for an image. Reload and it works. Cards
+  using `camera_view: live` are unaffected.
 - One consumer at a time is what has been tested. More may work; nothing checks.
 - Recordings, clips, snapshots and motion events are out of scope — this relays
   live video and nothing else.
