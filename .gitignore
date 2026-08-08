@@ -1,0 +1,17 @@
+.env
+.env.*
+*.local
+options.json
+session.json
+.blink_creds.json
+
+__pycache__/
+*.py[cod]
+.venv/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+htmlcov/
+.coverage
+
+.DS_Store

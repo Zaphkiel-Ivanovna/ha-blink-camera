@@ -1,0 +1,37 @@
+---
+name: Blink Camera Streamer
+version: "0.1.0"
+slug: blink_camera
+description: >-
+  Re-broadcasts a Blink camera liveview as an MPEG-TS stream on your LAN, so
+  Home Assistant, go2rtc or Frigate can consume it as a normal camera.
+url: https://github.com/Zaphkiel-Ivanovna/ha-blink-camera
+
+arch:
+  - aarch64
+  - amd64
+
+init: false
+startup: services
+boot: auto
+
+map:
+  - type: data
+    read_only: false
+  - type: app_config
+    read_only: false
+
+ports:
+  8554/tcp: 9554
+ports_description:
+  8554/tcp: Raw MPEG-TS relay. Point go2rtc or ffmpeg at it; see the docs.
+
+options:
+  username: ""
+  password: ""
+  camera_name: ""
+
+schema:
+  username: str?
+  password: password?
+  camera_name: str?
