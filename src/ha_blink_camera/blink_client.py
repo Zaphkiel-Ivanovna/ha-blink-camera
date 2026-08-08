@@ -47,6 +47,15 @@ _SESSION_FILE_MODE: Final = 0o600
 _SECRET_SESSION_KEYS: Final = ("token", "refresh_token")
 CONNECTIVITY_TIMEOUT_S: Final = 10.0
 _FEED_FAILURES: Final = (OSError, RuntimeError, ValueError, UnauthorizedError)
+_LOGIN_FAILURES: Final = (
+    ClientError,
+    TimeoutError,
+    OSError,
+    KeyError,
+    TypeError,
+    ValueError,
+    UnauthorizedError,
+)
 
 
 class StreamSink(Protocol):
@@ -98,6 +107,7 @@ class BlinkClient:
         self._redactor = redactor
         self._http: ClientSession | None = None
         self._blink: Blink | None = None
+        self._awaiting_2fa = False
         redactor.add(config.password)
 
     def adopt_bootstrap_session(self) -> bool:
@@ -204,10 +214,79 @@ class BlinkClient:
             return bool(await blink.start())
         except BlinkTwoFARequiredError as err:
             raise TwoFactorRequiredError(
-                "Blink wants a two-factor code, which this version cannot ask "
-                "for. Authenticate once elsewhere and import the session with "
-                "tools/import_session.py."
+                "Blink sent a two-factor code. Open the add-on's Web UI and "
+                "enter it there."
             ) from err
+
+    @property
+    def awaiting_two_factor(self) -> bool:
+        """Whether a login is paused waiting for a code from the user."""
+        return self._awaiting_2fa
+
+    async def begin_login(self, username: str, password: str) -> bool:
+        """Start an interactive login. True when done, False when a code is needed.
+
+        The OAuth state this leaves behind lives only in memory, so the code
+        must be submitted to this same process, through `submit_two_factor()`.
+        """
+        self._redactor.add(password)
+        await self.aclose()
+        self._http = ClientSession()
+        self._awaiting_2fa = False
+
+        blink = Blink(session=self._http)
+        blink.auth = Auth(
+            {"username": username, "password": password},
+            no_prompt=True,
+            session=self._http,
+            callback=self._persist_session,
+        )
+        self._blink = blink
+
+        try:
+            started = bool(await blink.start())
+        except BlinkTwoFARequiredError:
+            self._awaiting_2fa = True
+            return False
+        except _LOGIN_FAILURES as err:
+            raise TransientBlinkError(f"Blink could not be reached: {err}") from err
+
+        self._persist_session()
+        if not started or not blink.available:
+            await self._raise_login_failure()
+        try:
+            await blink.refresh(force=True)
+        except _LOGIN_FAILURES as err:
+            raise TransientBlinkError(
+                f"Signed in, but Blink then failed: {err}"
+            ) from err
+        return True
+
+    async def submit_two_factor(self, code: str) -> bool:
+        """Finish a login with the code Blink sent. False if it was rejected."""
+        blink = self._require_blink()
+        try:
+            accepted = bool(await blink.send_2fa_code(code))
+        except _LOGIN_FAILURES as err:
+            raise TransientBlinkError(f"Blink could not be reached: {err}") from err
+        if not accepted:
+            return False
+
+        self._awaiting_2fa = False
+        self._persist_session()
+        try:
+            await blink.refresh(force=True)
+        except _LOGIN_FAILURES as err:
+            raise TransientBlinkError(
+                f"Verified, but Blink then failed: {err}"
+            ) from err
+        _LOGGER.info("Authenticated; %d camera(s) on the account", len(blink.cameras))
+        return True
+
+    def camera_names(self) -> list[str]:
+        """Every camera on the account, for the setup page to offer."""
+        blink = self._blink
+        return sorted(blink.cameras.keys()) if blink else []
 
     def resolve_camera(self) -> tuple[str, Any]:
         """Find the configured camera, or the only one if none is configured."""

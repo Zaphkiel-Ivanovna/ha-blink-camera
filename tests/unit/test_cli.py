@@ -14,6 +14,7 @@ from ha_blink_camera.blink_client import BlinkClient
 from ha_blink_camera.config import Config
 from ha_blink_camera.exceptions import InvalidCredentialsError, TransientBlinkError
 from ha_blink_camera.logging_setup import SecretRedactor
+from ha_blink_camera.setup_ui import SetupState, Stage
 
 
 @pytest.fixture
@@ -69,25 +70,29 @@ async def test_idle_states_say_what_to_fix(
     assert "No Blink account configured yet." in errors
 
 
-async def test_a_missing_options_file_idles_rather_than_crashing(
+async def test_a_fresh_install_reaches_the_setup_page(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """A fresh install nobody has configured idles; it never reaches the relay."""
+    """No options is a first-run state, not an error: the Web UI collects them.
+
+    This replaces the old contract, where an unconfigured install idled with a
+    message telling the user to edit options they should never have to touch.
+    """
     monkeypatch.setenv("ADDON_DATA_DIR", str(tmp_path))
-    idled: list[str] = []
+    started: list[str] = []
 
-    async def record_idle(reason: str, stop: asyncio.Event) -> None:
-        idled.append(reason)
+    async def record_relay(config: Config, *_: object) -> None:
+        started.append(config.username)
 
-    async def must_not_run(*args: object) -> None:
-        raise AssertionError("the relay must not start without configuration")
+    async def must_not_idle(reason: str, stop: asyncio.Event) -> None:
+        raise AssertionError(f"should serve the setup page, not idle: {reason}")
 
-    monkeypatch.setattr(cli, "_idle", record_idle)
-    monkeypatch.setattr(cli, "_relay", must_not_run)
+    monkeypatch.setattr(cli, "_relay", record_relay)
+    monkeypatch.setattr(cli, "_idle", must_not_idle)
 
     await cli._main(SecretRedactor())
 
-    assert idled and "options file" in idled[0]
+    assert started == [""], "the relay starts with a blank config"
 
 
 class _Client:
@@ -148,13 +153,11 @@ def test_a_fatal_configuration_never_exits_non_zero(
     """Under an S6 longrun, a non-zero exit is an immediate respawn."""
     (tmp_path / "options.json").write_text(json.dumps({}), encoding="utf-8")
     monkeypatch.setenv("ADDON_DATA_DIR", str(tmp_path))
-    monkeypatch.setattr(cli, "HEARTBEAT_S", 0.01)
 
-    async def immediate_idle(reason: str, stop: asyncio.Event) -> None:
-        """Stand in for the real idle so the test does not run forever."""
-        assert "configured" in reason
+    async def returns_immediately(*_: object) -> None:
+        """Stand in for the relay, which otherwise waits for the setup page."""
 
-    monkeypatch.setattr(cli, "_idle", immediate_idle)
+    monkeypatch.setattr(cli, "_relay", returns_immediately)
 
     assert cli.main([]) == 0
 
@@ -175,3 +178,155 @@ def test_closing_the_client_twice_is_safe(tmp_path: Path) -> None:
         await client.aclose()
 
     asyncio.run(exercise())
+
+
+class _SetupClient:
+    """A BlinkClient stand-in for the setup callbacks."""
+
+    def __init__(self, *, needs_code: bool = False, code_ok: bool = True) -> None:
+        """Decide up front how this fake account behaves."""
+        self.needs_code = needs_code
+        self.code_ok = code_ok
+        self.raises: Exception | None = None
+        self.cameras = ["Office", "Porch"]
+
+    async def begin_login(self, username: str, password: str) -> bool:
+        """Succeed, ask for a code, or raise whatever the test set."""
+        if self.raises:
+            raise self.raises
+        return not self.needs_code
+
+    async def submit_two_factor(self, code: str) -> bool:
+        """Accept or reject the code, or raise."""
+        if self.raises:
+            raise self.raises
+        return self.code_ok
+
+    def camera_names(self) -> list[str]:
+        """The cameras this fake account has."""
+        return self.cameras
+
+
+def _state_and_handlers(client: object, camera_name: str | None = None):
+    """Build the setup state and the two callbacks the page drives."""
+    config = Config(
+        username="",
+        password="",
+        camera_name=camera_name,
+        data_dir=Path("/tmp"),
+        config_dir=Path("/tmp"),
+    )
+    state = SetupState()
+    return state, cli._setup_handlers(client, state, config)  # type: ignore[arg-type]
+
+
+async def test_a_login_needing_a_code_moves_to_the_two_factor_stage() -> None:
+    """The page has to know to ask for the code Blink just sent."""
+    state, (on_login, _) = _state_and_handlers(_SetupClient(needs_code=True))
+
+    await on_login("me@example.com", "pw")
+
+    assert state.stage is Stage.TWO_FACTOR
+    assert "code" in state.message.lower()
+
+
+async def test_a_login_without_a_code_goes_straight_to_ready() -> None:
+    """Some accounts do not challenge; the page should not ask for nothing."""
+    state, (on_login, _) = _state_and_handlers(_SetupClient())
+
+    await on_login("me@example.com", "pw")
+
+    assert state.stage is Stage.READY
+
+
+async def test_a_login_failure_is_shown_not_raised() -> None:
+    """An exception reaching aiohttp is a 500 with no explanation."""
+    client = _SetupClient()
+    client.raises = InvalidCredentialsError("Blink rejected these credentials.")
+    state, (on_login, _) = _state_and_handlers(client)
+
+    await on_login("me@example.com", "wrong")
+
+    assert state.stage is Stage.CREDENTIALS
+    assert "rejected" in state.error
+
+
+async def test_a_verified_code_selects_a_camera() -> None:
+    """Finishing setup should leave the page able to say what it will relay."""
+    state, (_, on_code) = _state_and_handlers(_SetupClient())
+
+    await on_code("123456")
+
+    assert state.stage is Stage.READY
+    assert state.cameras == ["Office", "Porch"]
+    assert state.camera == "Office", "falls back to the first camera found"
+
+
+async def test_a_configured_camera_name_wins_over_the_first_found() -> None:
+    """An explicit choice in the options must not be overridden."""
+    state, (_, on_code) = _state_and_handlers(_SetupClient(), camera_name="Porch")
+
+    await on_code("123456")
+
+    assert state.camera == "Porch"
+
+
+async def test_a_rejected_code_keeps_the_user_on_the_code_form() -> None:
+    """A typo is recoverable; it must not advance or dead-end."""
+    state, (_, on_code) = _state_and_handlers(_SetupClient(code_ok=False))
+    state.stage = Stage.TWO_FACTOR
+
+    await on_code("000000")
+
+    assert state.stage is Stage.TWO_FACTOR
+    assert "not accepted" in state.error
+
+
+async def test_sign_in_falls_back_to_the_setup_page_when_connect_fails(
+    monkeypatch: pytest.MonkeyPatch, fast_heartbeat: None
+) -> None:
+    """A stale or missing session must lead to the page, not to a dead add-on."""
+    monkeypatch.setattr(cli, "SETUP_POLL_S", 0.01)
+    config = Config(
+        username="me@example.com",
+        password="",
+        camera_name=None,
+        data_dir=Path("/tmp"),
+        config_dir=Path("/tmp"),
+    )
+    state = SetupState()
+    stop = asyncio.Event()
+
+    async def connect_never_succeeds(*_: object) -> bool:
+        return False
+
+    monkeypatch.setattr(cli, "_connect", connect_never_succeeds)
+    asyncio.get_running_loop().call_later(
+        0.15, lambda: setattr(state, "stage", Stage.READY)
+    )
+
+    assert await cli._sign_in(_SetupClient(), config, state, stop) is True  # type: ignore[arg-type]
+
+
+async def test_sign_in_routes_a_fatal_error_to_the_setup_page(
+    monkeypatch: pytest.MonkeyPatch, fast_heartbeat: None
+) -> None:
+    """Bad stored credentials should be fixable from the page, not idle forever."""
+    monkeypatch.setattr(cli, "SETUP_POLL_S", 0.01)
+    config = Config(
+        username="me@example.com",
+        password="",
+        camera_name=None,
+        data_dir=Path("/tmp"),
+        config_dir=Path("/tmp"),
+    )
+    state = SetupState()
+    stop = asyncio.Event()
+
+    async def connect_is_fatal(*_: object) -> bool:
+        raise InvalidCredentialsError("Blink rejected these credentials.")
+
+    monkeypatch.setattr(cli, "_connect", connect_is_fatal)
+    asyncio.get_running_loop().call_later(0.15, stop.set)
+
+    assert await cli._sign_in(_SetupClient(), config, state, stop) is False  # type: ignore[arg-type]

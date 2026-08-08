@@ -7,14 +7,20 @@ import contextlib
 import logging
 import signal
 import sys
-from collections.abc import Awaitable
+from collections.abc import Awaitable, Callable
 from typing import Final
 
 from .blink_client import BlinkClient, LiveSession, StreamSink
 from .blinkpy_patches import apply_patches
-from .config import Config, load_config, resolve_data_dir, resolve_relay_port
-from .exceptions import FatalConfigError, TransientBlinkError
+from .config import (
+    Config,
+    load_config_or_blank,
+    resolve_data_dir,
+    resolve_relay_port,
+)
+from .exceptions import BlinkCameraError, FatalConfigError, TransientBlinkError
 from .logging_setup import SecretRedactor, setup_logging
+from .setup_ui import SetupState, Stage, build_app, serve
 from .stream_relay import (
     BACKOFF_INITIAL_S,
     BACKOFF_MAX_S,
@@ -27,6 +33,7 @@ _LOGGER = logging.getLogger("ha_blink_camera")
 
 _STOP_SIGNALS: Final = (signal.SIGINT, signal.SIGTERM)
 HEARTBEAT_S: Final = 900.0
+SETUP_POLL_S: Final = 2.0
 
 
 async def _idle(reason: str, stop: asyncio.Event) -> None:
@@ -58,15 +65,29 @@ async def _connect(client: BlinkClient, stop: asyncio.Event) -> bool:
     return False
 
 
+async def _await_setup(state: SetupState, stop: asyncio.Event) -> bool:
+    """Hold until someone completes the setup page, or the add-on stops."""
+    _LOGGER.error("ACTION REQUIRED: open this add-on's Web UI tab and sign in.")
+    while not stop.is_set():
+        await wait_or_stop(SETUP_POLL_S, stop)
+        if state.stage is Stage.READY:
+            return True
+    return False
+
+
 async def _relay(config: Config, redactor: SecretRedactor, stop: asyncio.Event) -> None:
     """Authenticate and relay until stopped, or idle if something is misconfigured."""
     client = BlinkClient(config, redactor)
     relay = StreamRelay(port=resolve_relay_port(RELAY_PORT))
+    state = SetupState()
+    runner = await serve(build_app(state, *_setup_handlers(client, state, config)))
     try:
         client.adopt_bootstrap_session()
-        if not await _connect(client, stop):
+        if not await _sign_in(client, config, state, stop):
             return
         name, camera = client.resolve_camera()
+        state.stage, state.camera = Stage.READY, name
+        state.cameras = client.camera_names()
         _LOGGER.info("Relaying camera %r on demand", name)
 
         def open_session(sink: StreamSink) -> Awaitable[LiveSession]:
@@ -76,17 +97,61 @@ async def _relay(config: Config, redactor: SecretRedactor, stop: asyncio.Event) 
     except FatalConfigError as err:
         await _idle(str(err), stop)
     finally:
+        await runner.cleanup()
         await client.aclose()
+
+
+def _setup_handlers(
+    client: BlinkClient, state: SetupState, config: Config
+) -> tuple[Callable[[str, str], Awaitable[None]], Callable[[str], Awaitable[None]]]:
+    """Build the two callbacks the setup page drives."""
+
+    async def on_login(username: str, password: str) -> None:
+        state.error = state.message = ""
+        try:
+            done = await client.begin_login(username, password)
+        except BlinkCameraError as err:
+            state.error = str(err)
+            return
+        state.stage = Stage.READY if done else Stage.TWO_FACTOR
+        state.message = "" if done else "Blink sent you a code."
+
+    async def on_code(code: str) -> None:
+        state.error = state.message = ""
+        try:
+            if not await client.submit_two_factor(code):
+                state.error = "That code was not accepted. Try the newest one."
+                return
+        except BlinkCameraError as err:
+            state.error = str(err)
+            return
+        state.stage = Stage.READY
+        state.cameras = client.camera_names()
+        state.camera = config.camera_name or (
+            state.cameras[0] if state.cameras else None
+        )
+
+    return on_login, on_code
+
+
+async def _sign_in(
+    client: BlinkClient, config: Config, state: SetupState, stop: asyncio.Event
+) -> bool:
+    """Authenticate from the stored session, or hand over to the setup page."""
+    if config.username:
+        try:
+            if await _connect(client, stop):
+                state.stage = Stage.READY
+                return True
+        except FatalConfigError as err:
+            _LOGGER.warning("%s", err)
+    return await _await_setup(state, stop)
 
 
 async def _main(redactor: SecretRedactor) -> None:
     """Load configuration and hand off to the relay, or idle if there is none."""
     stop = _install_stop_handlers()
-    try:
-        config = load_config(resolve_data_dir())
-    except FatalConfigError as err:
-        await _idle(str(err), stop)
-        return
+    config = load_config_or_blank(resolve_data_dir())
 
     redactor.add(config.username)
     apply_patches()

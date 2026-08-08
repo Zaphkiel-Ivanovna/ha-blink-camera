@@ -14,6 +14,10 @@ arch:
 init: false
 startup: services
 
+ingress: true
+panel_icon: mdi:cctv
+panel_title: Blink camera
+
 map:
   - type: data
     read_only: false
