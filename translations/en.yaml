@@ -1,0 +1,22 @@
+---
+configuration:
+  username:
+    name: Blink account email
+    description: >-
+      The email address of your Blink account. Only needed if you have not
+      imported an existing session; it is never written to the log.
+  password:
+    name: Blink account password
+    description: >-
+      Leave empty if you imported a session file. This add-on cannot answer a
+      two-factor prompt on its own, so a password-only first run will stop and
+      tell you to import a session instead.
+  camera_name:
+    name: Camera name
+    description: >-
+      The camera to relay, exactly as it appears in the Blink app. Leave empty
+      if the account has only one camera. One camera per add-on install.
+network:
+  8554/tcp: >-
+    Raw MPEG-TS relay. Not a browser URL — point go2rtc or ffmpeg at it, as
+    described in the documentation tab.

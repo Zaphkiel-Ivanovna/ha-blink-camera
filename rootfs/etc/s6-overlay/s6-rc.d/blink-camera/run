@@ -1,0 +1,5 @@
+#!/command/with-contenv bashio
+# The relay. Supervisor delivers the user's options as /data/options.json, which
+# config.py reads directly; nothing is passed on the command line.
+bashio::log.info "Starting Blink camera streamer"
+exec /app/.venv/bin/python -m ha_blink_camera.cli

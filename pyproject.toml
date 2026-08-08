@@ -1,0 +1,60 @@
+[project]
+name = "ha-blink-camera"
+version = "0.1.0"
+description = "Home Assistant add-on that re-broadcasts a Blink camera liveview as MPEG-TS on the LAN"
+readme = "README.md"
+requires-python = ">=3.13"
+license = { text = "MIT" }
+dependencies = [
+    "blinkpy==0.25.9",
+    "aiohttp>=3.12",
+]
+
+[dependency-groups]
+dev = [
+    "mypy>=1.18",
+    "pytest>=8.4",
+    "pytest-asyncio>=1.2",
+    "ruff>=0.16",
+]
+
+[project.scripts]
+ha-blink-camera = "ha_blink_camera.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/ha_blink_camera"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py313"
+src = ["src", "tests", "tools"]
+
+[tool.ruff.lint]
+extend-select = ["I", "C90", "PLR0912", "PLR0915", "B", "UP"]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 10
+
+[tool.ruff.lint.pylint]
+max-branches = 12
+max-statements = 50
+
+[tool.mypy]
+strict = true
+python_version = "3.13"
+mypy_path = "src"
+files = ["src", "tools"]
+
+[[tool.mypy.overrides]]
+module = ["blinkpy.*"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+testpaths = ["tests"]
+addopts = "-ra --import-mode=importlib"
