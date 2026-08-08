@@ -45,6 +45,4 @@ class BlinkStreamerConfigFlow(ConfigFlow, domain=DOMAIN):
                     data={CONF_NAME: user_input[CONF_NAME], CONF_STREAM_URL: url},
                 )
 
-        return self.async_show_form(
-            step_id="user", data_schema=_SCHEMA, errors=errors
-        )
+        return self.async_show_form(step_id="user", data_schema=_SCHEMA, errors=errors)
