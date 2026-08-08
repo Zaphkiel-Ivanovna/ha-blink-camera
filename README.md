@@ -110,6 +110,9 @@ an account gets locked out. It logs one actionable line and idles instead.
 | Wrong credentials or camera name | One line, then idle |
 | Add-on stopped | Clean shutdown, even mid-stream |
 
+One camera per installation: Supervisor installs one copy per slug, and the
+relay's host port is fixed, so a second instance cannot be installed.
+
 ## Security
 
 The add-on requests **no elevated privileges** — no `privileged`, no

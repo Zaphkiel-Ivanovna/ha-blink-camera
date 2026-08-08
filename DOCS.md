@@ -26,8 +26,11 @@ discovery. That is not a trade worth making.
 
 ## Before you start
 
-**One camera per install.** If you have several cameras, install the add-on
-several times; each instance holds its own session and its own port.
+**One camera, and only one.** Supervisor identifies an add-on by its slug and
+installs exactly one copy of it, and the relay's host port is fixed — so a
+second instance is not something you can install, not merely something that is
+untested. Multiple cameras need either separate repositories with distinct
+slugs, or a future version that multiplexes them. Neither exists yet.
 
 **This version cannot answer a two-factor prompt.** Blink's login keeps its
 one-time state in memory, so a code has to reach a process that is already
