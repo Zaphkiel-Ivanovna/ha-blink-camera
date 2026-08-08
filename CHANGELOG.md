@@ -9,6 +9,14 @@ release bumps it.
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-08-09
+
+### Fixed
+
+- Camera thumbnails returned HTTP 500. The entity offers a live stream and no
+  snapshot URL, so Home Assistant fell through to `async_camera_image()`, which
+  it does not implement. It now takes stills from the stream.
+
 ## [0.3.0] - 2026-08-09
 
 ### Added
@@ -88,7 +96,8 @@ bootstrapped from a session file produced elsewhere.
 - One camera per install, one consumer at a time.
 - No two-factor login without an imported session file.
 
-[Unreleased]: https://github.com/Zaphkiel-Ivanovna/ha-blink-camera/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/Zaphkiel-Ivanovna/ha-blink-camera/compare/v0.3.1...HEAD
+[0.3.1]: https://github.com/Zaphkiel-Ivanovna/ha-blink-camera/releases/tag/v0.3.1
 [0.3.0]: https://github.com/Zaphkiel-Ivanovna/ha-blink-camera/releases/tag/v0.3.0
 [0.2.0]: https://github.com/Zaphkiel-Ivanovna/ha-blink-camera/releases/tag/v0.2.0
 [0.1.0]: https://github.com/Zaphkiel-Ivanovna/ha-blink-camera/releases/tag/v0.1.0
